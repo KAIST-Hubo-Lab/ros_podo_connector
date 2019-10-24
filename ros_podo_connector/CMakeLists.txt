@@ -78,20 +78,11 @@ add_executable(ros_podo_connector src/ros_podo_connector.cpp)
 add_dependencies(ros_podo_connector drc_podo_connector_generate_messages_cpp)
 target_link_libraries(ros_podo_connector ${catkin_LIBRARIES})
 
-#node for creating CSV file
-#add_executable(exportCSV src/exportCSV.cpp)
-#add_dependencies(exportCSV drc_podo_connector_generate_messages_cpp)
-#target_link_libraries(exportCSV ${catkin_LIBRARIES})
+#node for base navigation movement
+add_executable(base_navigation src/base_navigation.cpp)
+add_dependencies(base_navigation ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(base_navigation ${catkin_LIBRARIES})
 
-#node for action server
-#add_executable(action_server_podo src/action_server.cpp)
-#add_dependencies(action_server_podo ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(action_server_podo ${catkin_LIBRARIES})
-
-#node for action client
-add_executable(action_client_podo src/action_client.cpp)
-add_dependencies(action_client_podo ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(action_client_podo ${catkin_LIBRARIES})
 
 #node for action client
 add_executable(store_action src/store_application_client.cpp)
@@ -104,26 +95,9 @@ add_executable(joint_publish_client src/joint_publish_client.cpp)
 add_dependencies(joint_publish_client ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(joint_publish_client ${catkin_LIBRARIES})
 
-#node for joint publish mode: topic publisher
-#add_executable(joint_publish_pub src/joint_publish_pub.cpp)
-#add_dependencies(joint_publish_pub ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(joint_publish_pub ${catkin_LIBRARIES})
 
-#TEST_subscribe & write a text file
-#add_executable(sub_test src/sub_test.cpp)
-#add_dependencies(sub_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(sub_test ${catkin_LIBRARIES})
-
-#TEST_10Hz Publish
-#add_executable(joint_publish_test1 src/joint_publish_test1.cpp)
-#add_dependencies(joint_publish_test1 ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(joint_publish_test1 ${catkin_LIBRARIES})
 
 include_directories(${THIS_PACKAGE_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIRS})
-#TEST_Moveit trajectory
-#add_executable(moveit_trajectory src/moveit_trajectory.cpp)
-#add_dependencies(moveit_trajectory ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(moveit_trajectory ${catkin_LIBRARIES})
 
 #Trajectory Request
 add_executable(traj_request_client src/traj_request_client.cpp)

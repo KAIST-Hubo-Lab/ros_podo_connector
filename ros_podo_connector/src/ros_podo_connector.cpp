@@ -241,7 +241,7 @@ public:
     
     
 	  //multi request base move (velocity-based)
-      if(TXData.ros2podo_data.CMD_WHEEL == WHEEL_MOVE_VELOCITY) 
+      if(TXData.ros2podo_data.CMD_WHEEL == WHEEL_MOVE_VELOCITY || TXData.ros2podo_data.CMD_WHEEL == WHEEL_MOVE_STOP ) 
       {
 		  ; //dont wait for result
 	  }
@@ -613,6 +613,10 @@ public:
         gripperMotionSuccess = false;
 
         //=====execute action for robot motion========
+        
+        //Debugging
+        std::cout << "goal gripper mode = " << goal->grippermove_cmd << std::endl;
+        
         TXData.ros2podo_data.CMD_GRIPPER = static_cast<GRIPPERMOVE_CMD>(goal->grippermove_cmd);
         TXData.ros2podo_data.Gripper_action.side = goal->mode;
 
@@ -650,9 +654,10 @@ public:
         if(motionStartedTick > 200)  {motionStarted = true;}
         motionStartedTick++;
 
+		//debugging
+		//std::cout << "RX.gripper result_flag = " << RXData.podo2ros_data.Gripper_feedback.result_flag << std::endl;
         if(motionStarted == true && RXData.podo2ros_data.Gripper_feedback.result_flag == true )
         {
-
             result_.result_flag = 1;
             ROS_INFO("Finished Gripper action: %i\n", result_.result_flag );
             clearTXFlag();
@@ -1144,7 +1149,9 @@ void LANthread_update()
             tcp_size = read(sock, RXBuffer, RXDataSize);
             if(tcp_size == RXDataSize){
                 memcpy(&RXData, RXBuffer, RXDataSize);
-            }
+            }else{
+				tcp_size = read(sock, RXBuffer, (RXDataSize-tcp_size));
+			}
 
             if(tcp_size == 0){
                 tcp_status = 0x00;
@@ -1172,7 +1179,10 @@ void LANthread_update()
         if(tcp_statustraj == 0x01){
             // If client was connected
             tcp_size_traj = read(sock_traj, RXxBuffer, sizeof(int));
-            if(tcp_size_traj == 0){
+            
+            
+            if(tcp_size_traj == 0)
+            {
                 tcp_statustraj = 0x00;
                 close(sock_traj);
                 sock_traj = 0;
@@ -1224,11 +1234,14 @@ int main(int argc, char **argv)
     {
 
         //update RX values from PODO
-        LANthread_update();
+        LANthread_update(); 
 
         //Encoder Feedback Topic
         for(int i=0; i < NUM_JOINTS; i++)
             encoder_joint_states.position[i] = RXData.podo2ros_data.Arm_feedback.joint[i].reference;
+            
+            
+        
         encoder_feedback_pub.publish(encoder_joint_states);
 
 
