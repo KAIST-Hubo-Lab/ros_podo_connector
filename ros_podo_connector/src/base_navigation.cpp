@@ -444,7 +444,7 @@ int main (int argc, char **argv)
     
     //goal subscriber for 1. RVIZ 2. Navi Action
     ros::Subscriber goal_pose_subscriber = n.subscribe("/move_base_simple/goal", 10, receive_goal_pose);
-    ros::Subscriber goal_pose_action_subscriber = n.subscribe("/navi_dummy/goal", 10, receive_goal_pose_action);
+    ros::Subscriber goal_pose_action_subscriber = n.subscribe("/hubo_navigation/goal", 10, receive_goal_pose_action);
     
     //publish after align with marker
     ros::Publisher arrived_publisher = n.advertise<geometry_msgs::PoseStamped>("mobile_hubo/arrived_path",10);
