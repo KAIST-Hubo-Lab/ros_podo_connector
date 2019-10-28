@@ -22,7 +22,7 @@
  
  * E-mail : ml634@kaist.ac.kr     (Moonyoung Lee)
  * E-mail : blike4@kaist.ac.kr    (Heo Yujin)
- * E-mail : chosaihim@kaist.ac.kr (Cho Saihim)
+ * E-mail : saihimcho@kaist.ac.kr (Cho Saihim)
  *
  * Versions :
  * v2.0.2019.09
@@ -1209,11 +1209,13 @@ int main(int argc, char **argv)
     encoder_feedback_pub = n.advertise<sensor_msgs::JointState>("encoder_joint_states",1);
 
     //initialize
-    encoder_joint_states.name.resize(NUM_JOINTS);
-    encoder_joint_states.position.resize(NUM_JOINTS);
+    encoder_joint_states.name.resize(NUM_JOINTS+2);
+    encoder_joint_states.position.resize(NUM_JOINTS+2);
     for(int i; i < NUM_JOINTS; i++)
         encoder_joint_states.name[i] = JointBufferNameList[i] ;
 
+	encoder_joint_states.name[NUM_JOINTS] = "RHAND";	
+	encoder_joint_states.name[NUM_JOINTS+1] = "LHAND";
 
     // Create Socket
     initializeSocket();
@@ -1239,6 +1241,9 @@ int main(int argc, char **argv)
         //Encoder Feedback Topic
         for(int i=0; i < NUM_JOINTS; i++)
             encoder_joint_states.position[i] = RXData.podo2ros_data.Arm_feedback.joint[i].reference;
+		
+		encoder_joint_states.position[NUM_JOINTS] = RXData.JointEncoder[26];
+        encoder_joint_states.position[NUM_JOINTS+1] = RXData.JointEncoder[28];
             
             
         
