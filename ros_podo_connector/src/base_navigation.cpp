@@ -107,6 +107,10 @@ geometry_msgs::Pose current_robot_pose;
 
 /* ======================================= */
 
+//test output csv data
+#include <fstream>
+std::ofstream outputFile;
+
 
 /* receive goal pose from Navi Action */
 void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr &goal)
@@ -126,6 +130,20 @@ void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr
     temporary_goal_pose.orientation.z = goal->goal.ori_z;
     temporary_goal_pose.orientation.w = goal->goal.ori_w;
     
+    //update use marker flag
+    if(goal->goal.use_marker == 1)
+    {
+		use_aruco_marker = 1;
+		ROS_INFO("USE FLAG");
+	}
+	
+	else
+	{
+		use_aruco_marker = 0;
+		ROS_INFO("DONT USE FLAG");
+	}
+    
+    
     
 	//convert quaternion to euler
 	tf::Quaternion quat_goal;
@@ -144,24 +162,24 @@ void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr
 void receive_goal_pose(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
 	
-	//update flag to start new motion
-	initial_robot_rotation_flag = 1;
-    orientation_align_start = 1;
-    orientation_aligned_finished = 0;
+	////update flag to start new motion
+	//initial_robot_rotation_flag = 1;
+    //orientation_align_start = 1;
+    //orientation_aligned_finished = 0;
     
-    //get goal pose
-    temporary_goal_pose = msg->pose;
+    ////get goal pose
+    //temporary_goal_pose = msg->pose;
     
-    //convert quaternion to euler
-	tf::Quaternion quat_goal;
-	tf::quaternionMsgToTF(msg->pose.orientation, quat_goal);
-	double roll_goal, pitch_goal, yaw_goal;
-	tf::Matrix3x3(quat_goal).getRPY(roll_goal, pitch_goal, yaw_goal);
+    ////convert quaternion to euler
+	//tf::Quaternion quat_goal;
+	//tf::quaternionMsgToTF(msg->pose.orientation, quat_goal);
+	//double roll_goal, pitch_goal, yaw_goal;
+	//tf::Matrix3x3(quat_goal).getRPY(roll_goal, pitch_goal, yaw_goal);
 	
-	yaw_goal_rad = yaw_goal;
-	yaw_goal_deg = yaw_goal * R2Df;
+	//yaw_goal_rad = yaw_goal;
+	//yaw_goal_deg = yaw_goal * R2Df;
 	
-	ROS_INFO("NEW GOAL from RViz!! goalX: %f, goalY: %f, goalTheta: %f",msg->pose.position.x, msg->pose.position.y, yaw_goal_deg);
+	//ROS_INFO("NEW GOAL from RViz!! goalX: %f, goalY: %f, goalTheta: %f",msg->pose.position.x, msg->pose.position.y, yaw_goal_deg);
 
 }
 
@@ -332,14 +350,6 @@ void velocity_from_path(const nav_msgs::Path::ConstPtr& msg)
 
 
 
-/* receive user request to use aruco marker for alignment */
-void use_marker(const geometry_msgs::PoseStamped::ConstPtr& msg)
-{
-	ROS_INFO("will be using marker alignment");
-	use_aruco_marker = 1;
-
-}
-
 
 
 /* align robot with aruco marker */
@@ -348,7 +358,7 @@ void position_from_marker(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
 	
 	//move only when arrived at goal and user requested to use marker alignment
-	if( (arrived_goal == 1) && (use_aruco_marker == 1) )
+	if( (use_aruco_marker == 1) )
 	{
 		//ROS_INFO("detected marker!");
 		marker_detected = 1;
@@ -374,6 +384,9 @@ void position_from_marker(const geometry_msgs::PoseStamped::ConstPtr& msg)
 		
 		
 		//ROS_INFO("roll: %.3f, pitch: %.3f, yaw:%.3f",roll_marker, pitch_marker*R2Df, yaw_marker);
+		
+		//data output test
+		//outputFile << marker_x << "," <<  marker_y << "," <<  marker_z << "," << msg->pose.orientation.x << "," <<  msg->pose.orientation.y << "," <<  msg->pose.orientation.z<< "," << msg->pose.orientation.w << "," <<  roll_marker << "," <<  pitch_marker* R2Df << "," << yaw_marker <<std::endl;
 
     
    
@@ -382,6 +395,24 @@ void position_from_marker(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
 }
 
+
+/* to prevent old marker values being stored when no marker detected*/
+void reset_marker_values()
+{
+
+		//ROS_INFO("resetting marker pose data");
+
+		marker_detected = 0;
+		marker_x = 0;
+		marker_y = 0;
+		marker_z = 0;
+		
+		roll_marker = 0;
+		pitch_marker = 0;
+		yaw_marker = 0;
+		
+
+}
 
 /* update current robot pose from TF subscribe */
 void set_current_pose(const tf2_msgs::TFMessage::ConstPtr& _msg)
@@ -438,7 +469,7 @@ int main (int argc, char **argv)
     /* ============== Initialize ==============  */
     ros::NodeHandle n;
     ros::Subscriber key_input_sub = n.subscribe("/mobile_hubo/navigation_path",100,velocity_from_path);
-    ros::Subscriber marker_sub = n.subscribe("/aruco_single/pose",10,position_from_marker);
+    ros::Subscriber marker_sub = n.subscribe("/aruco_single/pose",1,position_from_marker);
     ros::Subscriber current_pose_subscriber = n.subscribe("/tf", 1, set_current_pose);
 
     
@@ -451,10 +482,18 @@ int main (int argc, char **argv)
     
     
     ros::Rate loop_rate(5);
+    
+    
+    //marker data output test
+    //outputFile.open("marker_data.csv");
+	//outputFile << "X" << "," << "Y" << ","  << "Z" << "," << "x" << "," <<  "y" << "," <<  "z" << ","  <<"w" << "," << "r" << ","  << "p"  << "," << "y" << std::endl;
+
 
 
     while(ros::ok())
     {
+		
+		
 
         /* 1st Motion: Rotate robot using position command */
         if(initial_robot_rotation_flag == 1)
@@ -480,8 +519,7 @@ int main (int argc, char **argv)
 									
 			//turn off flag 1 time call once finished action
 			initial_robot_rotation_flag = 0;
-			//turn off marker detect flag from previous detects
-			marker_detected = 0;
+			
 			ROS_INFO("1st Motion: initial rotation motion done");
 		}
 		
@@ -496,10 +534,15 @@ int main (int argc, char **argv)
 				ROS_INFO("2nd Motion: Follow path vx: %f, vy: %f\n", goal_base.VelX, goal_base.VelY); 
 				
 				ac_base.sendGoal(goal_base);
-				
+				//turn off marker detect flag from previous detects
+				//reset marker value before for 3rd motion
+				reset_marker_values();
+			
 				/* stop sending velocity command */
 				if(arrived_goal == 1)
 				{
+					
+					
 					move_flag = 0;
 					goal_base.wheelmove_cmd = WHEEL_MOVE_STOP;
 					goal_base.VelX = 0;
@@ -511,6 +554,9 @@ int main (int argc, char **argv)
 					geometry_msgs::PoseStamped arrived;
 					arrived.pose.position.x = 1;
 					arrived_publisher.publish(arrived);
+					ros::spinOnce();
+					usleep(1000* 2 * 1000); 
+					
 
 				}		       
 			}
@@ -518,6 +564,8 @@ int main (int argc, char **argv)
 			/* 3rd Motion: align using aruco marker */
 			if(move_flag == 0 && orientation_align_start == 1)
 			{
+				
+				ros::spinOnce();
 				
 				//no marker detected
 				if(marker_detected == 0)
@@ -528,17 +576,17 @@ int main (int argc, char **argv)
 				//marker detected
 				else
 				{
-					if(have_aligned == 0)
+					if(use_aruco_marker == 1 && have_aligned == 0)
 					{
 						//ROS_INFO("3rd Motion: Align robot!");
-						usleep(1000* 3 * 1000); 
+						
 						
 						goal_base.wheelmove_cmd = WHEEL_MOVE_START;
 						goal_base.MoveX = marker_robot_x;
 						goal_base.MoveY = marker_robot_y;
 						goal_base.ThetaDeg = 0;
 						
-						ROS_INFO("3rd Motion: ALIGN translation x: %.3f, z: %.3f, theta: %.3f, thetaDeg: %.3f\n", marker_robot_x , marker_robot_y, goal_base.ThetaDeg, goal_base.ThetaDeg*R2Df); 
+						ROS_INFO("3rd Motion: ALIGN translation x: %.3f, y: %.3f, theta: %.3f, thetaDeg: %.3f\n", marker_robot_x , marker_robot_y, goal_base.ThetaDeg, goal_base.ThetaDeg*R2Df); 
 					
 						ac_base.sendGoalAndWait(goal_base, ros::Duration(5));
 						
@@ -549,7 +597,7 @@ int main (int argc, char **argv)
 						goal_base.MoveY = 0;
 						goal_base.ThetaDeg = pitch_marker;
 						
-						ROS_INFO("3rd Motion: ALIGN rotation x: %.3f, z: %.3f, theta: %.3f, thetaDeg: %.3f\n", marker_robot_x , marker_robot_y, goal_base.ThetaDeg, goal_base.ThetaDeg*R2Df); 
+						ROS_INFO("3rd Motion: ALIGN rotation x: %.3f, y: %.3f, theta: %.3f, thetaDeg: %.3f\n", marker_robot_x , marker_robot_y, goal_base.ThetaDeg, goal_base.ThetaDeg*R2Df); 
 					
 						ac_base.sendGoalAndWait(goal_base, ros::Duration(5));
 						*/
@@ -562,6 +610,7 @@ int main (int argc, char **argv)
 				
 				//end of 3rd motion
 				orientation_align_start = 0;
+				use_aruco_marker = 0; //reset flag
 				ROS_INFO("Finished all motion: Not moving until next goal received"); 
 
 			}
