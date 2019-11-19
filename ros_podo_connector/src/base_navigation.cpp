@@ -407,6 +407,10 @@ void reset_marker_values()
 		marker_y = 0;
 		marker_z = 0;
 		
+		marker_robot_y = 0;
+		marker_robot_x = 0;
+		
+		
 		roll_marker = 0;
 		pitch_marker = 0;
 		yaw_marker = 0;
