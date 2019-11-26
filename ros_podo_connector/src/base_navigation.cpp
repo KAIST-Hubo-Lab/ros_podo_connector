@@ -72,13 +72,12 @@ float velocityxyzw [4][averageWindowN];
 float vx_tx, vy_tx, vw_tx, vz_tx;
 float vx_out_robot, vy_out_robot, vw_out_robot, vz_out_robot;
 
-//previous test flags
+
 int sum_of_i = 0;
-int received_path = 0;
-int move_flag = 0;
-int have_aligned = 0;
+
 int arrived_goal = 0;
 int marker_detected = 0;
+int received_path = 0;
 
 float yaw_goal_deg, yaw_goal_rad;
 float yaw_current_deg, yaw_current_rad;
@@ -142,7 +141,7 @@ void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr
 		ROS_INFO("DONT USE FLAG");
 	}
     
-    use_navi = 0;
+    use_navi = 1;
     
     
 	//convert quaternion to euler
@@ -194,21 +193,17 @@ void velocity_from_path(const nav_msgs::Path::ConstPtr& msg)
 		ROS_ERROR(" empty path");
 		return;
 	}
-    
 
     int pathSize = msg->poses.size();
     //ROS_INFO("path size: %d", pathSize); 
     
     received_path = 1;
-    
-    if(pathSize > arrival_threshold)
-    {
-		arrived_goal = 0;
-		move_flag = 1;
-		have_aligned = 0;
-	}
+    arrived_goal = 0;
+
+		
+
 	
-        nav_msgs::Path pathDifferece; //vectory of differences in path
+      nav_msgs::Path pathDifferece; //vectory of differences in path
     geometry_msgs::PoseStamped temporaryPose; //used to fill
     
     //create pose difference array 
@@ -511,7 +506,7 @@ int main (int argc, char **argv)
 		{
 			case(00):
 				
-				ROS_INFO("00 idle");
+				ROS_INFO("====== [CASE 00] idle ====== ");
 				
 				if(robot_move_request)
 				{
@@ -532,9 +527,12 @@ int main (int argc, char **argv)
 					}	
 				}
 				break;
+			
+			
+			/* ============================ Start of Local Movement (no Navi) ==================================== */
 				
 			case(01):
-				ROS_INFO("01 no navi! goal movement");
+				ROS_INFO("======  [CASE 01] no navi! goal movement ====== ");
 				
 				//send local goal 
 				goal_base.wheelmove_cmd = WHEEL_MOVE_START;
@@ -574,14 +572,14 @@ int main (int argc, char **argv)
 				break;
 			
 			case(100):
-				ROS_INFO("dummy state for updating marker flag");
+				//ROS_INFO("dummy state for updating marker flag");
 				ros::spinOnce(); //update marker flag
 				state_variable = 02;
 				break;
 				
 			case(02):
 				ros::spinOnce(); //update marker flag
-				ROS_INFO("02 no navi! align marker");
+				ROS_INFO(" ======  [CASE 02] no navi! align marker ====== ");
 				
 				if(marker_detected == 1)
 				{
@@ -604,9 +602,101 @@ int main (int argc, char **argv)
 					state_variable = 20;
 				}
 				
+				break;
+				
+			/* ============================ End of Local Movement ==================================== */
+			
+			
+			/* ============================ Start of Global Movement (Navi) ==================================== */
+			case(10):
+				ROS_INFO("====== [CASE 10] navi! initial rotatae ====== ");
+				//send rotate command
+				goal_base.wheelmove_cmd = WHEEL_MOVE_START;
+				goal_base.MoveX = 0;
+				goal_base.MoveY = 0;
+				
+				temp_rad = yaw_goal_rad - yaw_current_rad;
+				
+				// [-PI, PI] range, bound 2PI turns from subtraction
+				if(temp_rad >= PI) goal_base.ThetaDeg  = temp_rad - 2*PI;		
+				else if(temp_rad <= -1*PI) goal_base.ThetaDeg  = temp_rad + 2*PI;			
+				//within bound
+				else goal_base.ThetaDeg = temp_rad;
+
+				ROS_INFO("rotate x: %.3f, y: %.3f, thetaGoal: %.3f, thetaCurrent: %.3f, thetaMove: %.3f\n", goal_base.MoveX , goal_base.MoveY, yaw_goal_rad*R2Df, yaw_current_rad*R2Df, goal_base.ThetaDeg*R2Df); 
+				
+				//wait until done or timeout
+				ac_base.sendGoalAndWait(goal_base, ros::Duration(5));
+				
+				
+				ROS_INFO("1st Motion: initial rotation motion done");
+				
+				state_variable = 11;
+				ROS_INFO("====== [CASE 11] navi! follow path ====== ");
+				
+				break;
+			
+			case(11):	
+				
+				//received path
+				if(received_path == 1)
+				{
+					if(arrived_goal == 0 )
+					{
+						//send velocity commands
+						goal_base.wheelmove_cmd = WHEEL_MOVE_VELOCITY;
+						goal_base.VelX = vx_out_robot;
+						goal_base.VelY = vy_out_robot;
+						ROS_INFO("2nd Motion: Follow path vx: %f, vy: %f\n", goal_base.VelX, goal_base.VelY); 
+						
+						ac_base.sendGoal(goal_base);
+					}
+					
+					//arrived goal 
+					else
+					{
+						
+						//send STOP navi velocity command
+						goal_base.wheelmove_cmd = WHEEL_MOVE_STOP;
+						goal_base.VelX = 0;
+						goal_base.VelY = 0;
+						ROS_INFO("2nd Motion: STOP. velocity movement completed");
+						ac_base.sendGoal(goal_base);
+					
+						if(use_aruco_marker == 1)
+						{
+							state_variable = 200;
+						}
+						else
+						{
+							state_variable = 20;
+						}
+					}
+							
+				}
+				
+				//haven't received path yet
+				else
+				{
+					state_variable = 11;
+				}
+				
+				break;
+				
+				
+			case(200):
+				//ROS_INFO("dummy state for updating marker flag");
+				ros::spinOnce(); //update marker flag
+				state_variable = 02;
+				break;
+				
+			/* ============================ End of Global Movement (Navi) ==================================== */
+			
+			
+			
 				
 			case(20):
-				ROS_INFO("=== DONE MOTION ====");
+				ROS_INFO("====== [CASE 20] DONE MOTION ===== ");
 				
 				//publish arrival flag to stop planning 
 				geometry_msgs::PoseStamped arrived;
@@ -614,11 +704,13 @@ int main (int argc, char **argv)
 				arrived_publisher.publish(arrived);
 				
 				//reset flags
-				state_variable = 0;
+				state_variable = 00;
 				robot_move_request = 0;
 				use_navi = 0;
 				marker_detected = 0;
-				
+				arrived_goal = 0;
+				received_path = 0;
+				reset_marker_values();
 				break;
 				
 
