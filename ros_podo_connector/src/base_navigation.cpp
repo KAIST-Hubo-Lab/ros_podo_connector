@@ -65,6 +65,8 @@ const float     PI   = 3.14159265;
 #define grid_resolution 0.1 //meter
 #define marker_offset_z 0.5
 
+#define MAX_TRANSLATION 5.0
+
 /* ========= global variables ========== */
 ros::Publisher path_pub; //path difference
 
@@ -116,6 +118,7 @@ std::ofstream outputFile;
 void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr &goal)
 {
 	
+	
 	//update flag to start new motion
 	robot_move_request = 1;
     
@@ -128,20 +131,32 @@ void receive_goal_pose_action(const mobile_path_planning::naviActionGoalConstPtr
     temporary_goal_pose.orientation.z = goal->goal.ori_z;
     temporary_goal_pose.orientation.w = goal->goal.ori_w;
     
-    //update use marker flag
-    if(goal->goal.use_marker == 1)
+    use_navi = goal->goal.use_navi;
+    use_aruco_marker = goal->goal.use_marker;
+    
+    ROS_INFO("use navi: %d ,use marker: %d\n", use_navi, use_aruco_marker);
+    
+    
+    //check nan values
+    if( isnanf(temporary_goal_pose.position.x) || isnanf(temporary_goal_pose.position.y) || isnanf(temporary_goal_pose.position.z) || isnanf(temporary_goal_pose.orientation.x) || isnanf(temporary_goal_pose.orientation.y) || isnanf(temporary_goal_pose.orientation.z) || isnanf(temporary_goal_pose.orientation.w) )
     {
-		use_aruco_marker = 1;
-		ROS_INFO("USE FLAG");
+		ROS_ERROR("received NAN value goal\n");
+		temporary_goal_pose.position.x = 0;
+		temporary_goal_pose.position.y = 0;
+		temporary_goal_pose.position.z = 0;
+		temporary_goal_pose.orientation.x = 0;
+		temporary_goal_pose.orientation.y = 0;
+		temporary_goal_pose.orientation.z = 0;
+		temporary_goal_pose.orientation.w = 0;
+		robot_move_request = 0;
 	}
 	
-	else
+	//check large values
+	if( (fabs(temporary_goal_pose.position.x)> MAX_TRANSLATION) || (fabs(temporary_goal_pose.position.y)> MAX_TRANSLATION) || (fabs(temporary_goal_pose.position.z)> MAX_TRANSLATION) )
 	{
-		use_aruco_marker = 0;
-		ROS_INFO("DONT USE FLAG");
+		ROS_ERROR("received goal pos greater than 5.0 meters\n");
+		robot_move_request = 0;
 	}
-    
-    use_navi = 1;
     
     
 	//convert quaternion to euler
@@ -539,10 +554,13 @@ int main (int argc, char **argv)
 				goal_base.MoveX = 0;
 				goal_base.MoveY = 0;
 				goal_base.ThetaDeg = yaw_goal_rad;
-						
-				ROS_INFO("Rotation Motion without Navi! x: %.3f, y: %.3f, theta: %.3f\n", goal_base.MoveX , goal_base.MoveY, goal_base.ThetaDeg*R2Df); 
-
-				ac_base.sendGoalAndWait(goal_base, ros::Duration(5));
+				
+				if(goal_base.ThetaDeg != 0)	
+				{
+					ROS_INFO("Rotation Motion without Navi! x: %.3f, y: %.3f, theta: %.3f\n", goal_base.MoveX , goal_base.MoveY, goal_base.ThetaDeg*R2Df); 
+					ac_base.sendGoalAndWait(goal_base, ros::Duration(5));
+				}	
+				
 				
 				goal_base.wheelmove_cmd = WHEEL_MOVE_START;
 				goal_base.MoveX = temporary_goal_pose.position.x*cos(yaw_goal_rad) + temporary_goal_pose.position.y*sin(yaw_goal_rad);
